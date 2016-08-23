@@ -1,7 +1,6 @@
 const int soundPin = 1; // Alias "TX"
-
 void setup() {
-  int btnPin = 3; // Listen for button click
+  const int btnPin = 3; // Listen for button click
   pinMode(btnPin, INPUT_PULLUP);
   attachInterrupt(digitalPinToInterrupt(btnPin), inputHandler, FALLING);
 
@@ -16,16 +15,34 @@ void setup() {
   Serial.begin(9600); // Debugging
 }
 
+
 const unsigned int NUM_OF_STATES = 6;
 unsigned int myState = 0;
 bool skip = false; // skip delays
+const unsigned int MAX_SOUND_TIME = 128;
+unsigned int soundBaseline = 28 * 32;
+unsigned int soundSampleSize = 32;
+
+
+// Function prototypes
+void blinkDiode(int hastighed = 500);
+void blinkAllFade(int hastighed = 5);
+void blinkAllRandom(int hastighed = 25);
+
 void loop() {
   switch (myState) {
-    case 0: blinkDiode(); break;
+    case 0: blinkDiode();
+            soundBaseline += analogRead(soundPin);
+            soundSampleSize += 1;
+            if (soundSampleSize > 1024) {
+              soundBaseline = soundBaseline / soundSampleSize;
+              soundSampleSize = 1;
+            }
+            break;
     case 1: soundActivated(); break;
-    case 2: blinkAll(); break;
+    case 2: blinkAll();       break;
     case 3: blinkAllFade(10); break;
-    case 4: blinkAllFade(1); break;
+    case 4: blinkAllFade(1);  break;
     case 5: blinkAllRandom(); break;
     default:
       Serial.println("Unknown state"); delay(1000);
@@ -39,25 +56,29 @@ int soundMax = 0;
 void soundActivated(void) {
   int val = analogRead(soundPin);
   soundMax = (val > soundMax) ? val : (soundMax - 1);
+  if (soundMax > MAX_SOUND_TIME) soundMax = MAX_SOUND_TIME;
+
+  unsigned int base = soundBaseline / soundSampleSize;
+  Serial.println("Baseline: " + String(base));
 
   int led = 11; // green
-  if (soundMax < 27) {
+  if (soundMax < base-1) {
     led = 10; // blue
-  } else if (soundMax > 29) {
+  } else if (soundMax > base+1) {
     led = 9; // red
   }
   digitalWrite(led, HIGH);
   for (int i = 9; i < 12; i++) {
     if (i != led) digitalWrite(i, LOW);
   }
-  if (!skip && led == 9) delay(20);
+  if (!skip && led == 9) delay(30);
 }
 
-void blinkDiode(void) {
+void blinkDiode(int hastighed) {
   digitalWrite(13, HIGH);
-  if (!skip) delay(500);
+  if (!skip) delay(hastighed);
   digitalWrite(13, LOW);
-  if (!skip) delay(500);
+  if (!skip) delay(hastighed);
 }
 
 void blinkAll(void) { // R -> G -> B
@@ -81,11 +102,11 @@ void blinkAllFade(int hastighed) { // R -> G -> B
   }
 }
 
-void blinkAllRandom(void) {
+void blinkAllRandom(int hastighed) {
   int led = random(9, 12);
   int brightness = random(255);
   analogWrite(led, brightness);
-  if (!skip) delay(50);
+  if (!skip) delay(hastighed);
 }
 
 
@@ -108,6 +129,8 @@ void inputHandler(void) {
 
 void cleanUp(void) {
   skip = true; // skip delays to end any running blink func.
+  /* It would be nice with a small delay here,
+     but this is not possible as this function is called from an interrupt handler */
   for (int led = 9; led < 13; led++) {
     digitalWrite(led, LOW); // samme som analogWrite(led, 0) ?
   }
