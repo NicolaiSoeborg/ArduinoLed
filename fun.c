@@ -11,34 +11,26 @@ void setup() {
     pinMode(i, OUTPUT);
   }
 
-  randomSeed(GetTemp()); // Best randomness available w/o RNG
+  //randomSeed(GetTemp());
   Serial.begin(9600); // Debugging
 }
-
-
-const unsigned int NUM_OF_STATES = 6;
-unsigned int myState = 0;
-bool skip = false; // skip delays
-const unsigned int MAX_SOUND_TIME = 128;
-unsigned int soundBaseline = 28 * 32;
-unsigned int soundSampleSize = 32;
-
 
 // Function prototypes
 void blinkDiode(int hastighed = 500);
 void blinkAllFade(int hastighed = 5);
 void blinkAllRandom(int hastighed = 25);
 
+bool skip = false; // skip delays
+const unsigned int MAX_SOUND_TIME = 128; // delay in func is 15 => 1.9 sec max
+unsigned int soundSampleSize = 64; // 1 sample / sec
+unsigned int soundBaseline = 28 * soundSampleSize; // 28 is a good baseline
+const unsigned int NUM_OF_STATES = 6;
+unsigned int myState = 0;
+
 void loop() {
   switch (myState) {
-    case 0: blinkDiode();
-            soundBaseline += analogRead(soundPin);
-            soundSampleSize += 1;
-            if (soundSampleSize > 1024) {
-              soundBaseline = soundBaseline / soundSampleSize;
-              soundSampleSize = 1;
-            }
-            break;
+    case 0: gatherBackgroundNoice();
+      blinkDiode();     break;
     case 1: soundActivated(); break;
     case 2: blinkAll();       break;
     case 3: blinkAllFade(10); break;
@@ -52,26 +44,26 @@ void loop() {
 
 //////////  BLINK PATTERNS  //////////
 
-int soundMax = 0;
+int soundCurrent = 0;
 void soundActivated(void) {
   int val = analogRead(soundPin);
-  soundMax = (val > soundMax) ? val : (soundMax - 1);
-  if (soundMax > MAX_SOUND_TIME) soundMax = MAX_SOUND_TIME;
+  soundCurrent = (val > soundCurrent) ? val : (soundCurrent - 1); // Keep decreasing soundCurrent, unless val > soundCur
+  if (soundCurrent > MAX_SOUND_TIME) soundCurrent = MAX_SOUND_TIME; // Set max soundCurrent, s.t. a too loud sound ...
 
   unsigned int base = soundBaseline / soundSampleSize;
-  Serial.println("Baseline: " + String(base));
+  //Serial.println("Baseline: " + String(base));
 
-  int led = 11; // green
-  if (soundMax < base-1) {
-    led = 10; // blue
-  } else if (soundMax > base+1) {
-    led = 9; // red
+  int led = 11; // green?
+  if (soundCurrent < base - 1) {
+    led = 10; // blue?
+  } else if (soundCurrent > base + 1) {
+    led = 9; // red?
   }
   digitalWrite(led, HIGH);
   for (int i = 9; i < 12; i++) {
     if (i != led) digitalWrite(i, LOW);
   }
-  if (!skip && led == 9) delay(30);
+  if (!skip && led == 9) delay(15); // Allow the red (high sound) to stay on for longer, see def. of MAX_SOUND_TIME.
 }
 
 void blinkDiode(int hastighed) {
@@ -95,7 +87,7 @@ void blinkAllFade(int hastighed) { // R -> G -> B
       analogWrite(led, brightness); // turn up
       if (!skip) delay(hastighed);
     }
-    for (int brightness = 255-1; brightness >= 0; --brightness) {
+    for (int brightness = 255 - 1; brightness >= 0; --brightness) {
       analogWrite(led, brightness); // turn down
       if (!skip) delay(hastighed);
     }
@@ -115,7 +107,7 @@ void blinkAllRandom(int hastighed) {
 unsigned int lastChange = 0; // Shared variable. Make sure every action is atomic.
 void inputHandler(void) {
   noInterrupts(); // Begin critical region
-  
+
   if (lastChange + 500 < millis()) { // 0.5 sek delay
     lastChange = millis();
 
@@ -123,7 +115,7 @@ void inputHandler(void) {
     cleanUp();
     Serial.println("New state: " + String(myState));
   }
-  
+
   interrupts(); // End critical region
 }
 
@@ -133,6 +125,15 @@ void cleanUp(void) {
      but this is not possible as this function is called from an interrupt handler */
   for (int led = 9; led < 13; led++) {
     digitalWrite(led, LOW); // samme som analogWrite(led, 0) ?
+  }
+}
+
+void gatherBackgroundNoice(void) {
+  soundBaseline += analogRead(soundPin);
+  soundSampleSize += 1;
+  if (soundSampleSize > 512) { // one sample for each diode blink (1 sec) => reset samples every 8 min
+    soundBaseline = soundBaseline / soundSampleSize;
+    soundSampleSize = 1;
   }
 }
 
