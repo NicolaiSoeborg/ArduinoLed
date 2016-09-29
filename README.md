@@ -1,4 +1,5 @@
 # Arduino Led
+[![Build Status](https://travis-ci.org/NicolaiSoeborg/ArduinoLed.svg?branch=master)](https://travis-ci.org/NicolaiSoeborg/ArduinoLed)
 
 A small Arduino project for fancy LED light.
 
