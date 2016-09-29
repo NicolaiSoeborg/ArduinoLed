@@ -1,5 +1,4 @@
 # Arduino Led
--------------
 
 A small Arduino project for fancy LED light.
 
@@ -29,3 +28,4 @@ Pin | Unit
 
 ## Demo
 ![Chief hat demo](/demo.gif)
+(shouting at the hat!)
