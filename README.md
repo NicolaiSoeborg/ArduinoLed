@@ -28,4 +28,5 @@ Pin | Unit
 
 ## Demo
 ![Chief hat demo](/demo.gif)
+
 (shouting at the hat!)
